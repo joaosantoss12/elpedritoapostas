@@ -91,12 +91,20 @@ async function sendPickEmail(to) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>A tua Aposta — El Pedrito Apostas</title>
+  <style>
+    @media only screen and (max-width:640px) {
+      .email-outer { padding: 16px 8px !important; }
+      .email-wrap  { width: 100% !important; max-width: 100% !important; }
+      .body-pad    { padding: 20px 16px !important; }
+      .stack-col   { display: block !important; width: 100% !important; padding: 0 0 16px 0 !important; box-sizing: border-box !important; }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#080B10;font-family:'Inter',system-ui,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#080B10;padding:40px 16px;">
+  <table width="100%" cellpadding="0" cellspacing="0" class="email-outer" style="background:#080B10;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="900" cellpadding="0" cellspacing="0" style="max-width:900px;width:100%;">
+        <table width="900" cellpadding="0" cellspacing="0" class="email-wrap" style="max-width:900px;width:100%;">
 
           <!-- Header -->
           <tr>
@@ -108,7 +116,7 @@ async function sendPickEmail(to) {
 
           <!-- Body -->
           <tr>
-            <td style="background:#0E1318;border-radius:0 0 16px 16px;padding:32px;border:1px solid rgba(255,255,255,0.08);border-top:none;">
+            <td class="body-pad" style="background:#0E1318;border-radius:0 0 16px 16px;padding:32px;border:1px solid rgba(255,255,255,0.08);border-top:none;">
 
               <p style="margin:0 0 24px;color:#94A3B8;font-size:15px;line-height:1.6;">
                 Obrigado pela tua compra! Aqui está a análise e aposta que preparámos para ti.
@@ -119,7 +127,7 @@ async function sendPickEmail(to) {
                 <tr valign="top">
 
                   <!-- Text pick card -->
-                  <td style="padding-right:${pick.image_url ? '10px' : '0'};">
+                  <td class="stack-col" style="padding-right:${pick.image_url ? '10px' : '0'};">
                     <table width="100%" cellpadding="0" cellspacing="0" style="background:#141A22;border:1px solid rgba(234,179,8,0.25);border-radius:12px;overflow:hidden;">
                       <tr>
                         <td style="padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.07);">
@@ -157,7 +165,7 @@ async function sendPickEmail(to) {
 
                   ${pick.image_url ? `
                   <!-- Image pick card -->
-                  <td width="48%" style="padding-left:10px;">
+                  <td class="stack-col" width="48%" style="padding-left:10px;">
                     <table width="100%" cellpadding="0" cellspacing="0" style="background:#141A22;border:1px solid rgba(234,179,8,0.25);border-radius:12px;overflow:hidden;height:100%;">
                       <tr>
                         <td style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.07);">
@@ -172,7 +180,7 @@ async function sendPickEmail(to) {
                       <tr>
                         <td style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.07);text-align:center;">
                           <p style="margin:0 0 8px;font-size:13px;color:#F1F5F9;line-height:1.6;font-weight:600;">Ganhas te esta super aposta e uma semana no meu vip! 🙌</p>
-                          <a href="https://t.me/+yqZeHcPcHgI5N2Zk" style="display:inline-block;background:linear-gradient(135deg,#EAB308,#CA8A04);color:#000;font-size:13px;font-weight:700;text-decoration:none;padding:8px 16px;border-radius:8px;">Entrar no VIP 🔥</a>
+                          <a href="https://t.me/+yqZeHcPcHgI5N2Zk" style="font-size:13px;color:#3B82F6;text-decoration:underline;">https://t.me/+yqZeHcPcHgI5N2Zk</a>
                         </td>
                       </tr>
                     </table>
