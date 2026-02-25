@@ -74,7 +74,7 @@ function App() {
       })
   }, [])
 
-  const PRICE = pick ? `${Number(pick.price).toFixed(2)}€` : '14.99€'
+  const PRICE = pick ? `${Number(pick.price).toFixed(2)}€` : '99.99€'
 
   if (isSuccess) return <SuccessPage />
 
