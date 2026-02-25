@@ -96,7 +96,7 @@ async function sendPickEmail(to) {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#080B10;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <table width="900" cellpadding="0" cellspacing="0" style="max-width:900px;width:100%;">
 
           <!-- Header -->
           <tr>
