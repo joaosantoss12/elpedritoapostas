@@ -28,7 +28,7 @@ function SuccessPage() {
         </p>
         <p className="success-sub">
           Se não receberes o email nos próximos minutos, verifica a pasta de
-          spam.
+          spam e/ou a pasta de "promoções". Qualquer dúvida, entra em contacto elpedritomembros@gmail.com
         </p>
         <a href="/" className="btn-primary">
           Voltar ao Início
