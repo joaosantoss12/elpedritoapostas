@@ -177,12 +177,6 @@ async function sendPickEmail(to) {
                           <img src="${pick.image_url}" alt="Aposta" width="100%" style="border-radius:8px;border:1px solid rgba(234,179,8,0.15);display:block;" />
                         </td>
                       </tr>
-                      <tr>
-                        <td style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.07);text-align:center;">
-                          <p style="margin:0 0 8px;font-size:13px;color:#F1F5F9;line-height:1.6;font-weight:600;">Ganhas te esta super aposta e uma semana no meu vip! 🙌</p>
-                          <a href="https://t.me/+yqZeHcPcHgI5N2Zk" style="font-size:13px;color:#3B82F6;text-decoration:underline;">https://t.me/+yqZeHcPcHgI5N2Zk</a>
-                        </td>
-                      </tr>
                     </table>
                   </td>` : ''}
 
