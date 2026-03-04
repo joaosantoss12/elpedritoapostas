@@ -14,6 +14,7 @@ interface Pick {
   analysis: string
   markets: string
   price: string | number
+  active: boolean
 }
 
 function SuccessPage() {
@@ -65,7 +66,6 @@ function App() {
     supabase
       .from('picks')
       .select('*')
-      .eq('active', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
@@ -75,6 +75,7 @@ function App() {
   }, [])
 
   const PRICE = pick ? `${Number(pick.price).toFixed(2)}€` : '99.99€'
+  const isDisabled = loading || pick?.active === false
 
   if (isSuccess) return <SuccessPage />
 
@@ -113,7 +114,7 @@ function App() {
               El Pedrito <span className="logo-highlight">Apostas</span>
             </span>
           </div>
-          <button className="btn-nav" onClick={handleBuy} disabled={loading}>
+          <button className="btn-nav" onClick={handleBuy} disabled={isDisabled}>
             Comprar — {PRICE}
           </button>
         </div>
@@ -136,7 +137,7 @@ function App() {
             <button
               className="btn-primary btn-large"
               onClick={handleBuy}
-              disabled={loading}
+              disabled={isDisabled}
             >
               {loading ? (
                 <span className="spinner" />
@@ -304,7 +305,7 @@ function App() {
               <button
                 className="btn-primary btn-full"
                 onClick={handleBuy}
-                disabled={loading}
+                disabled={isDisabled}
               >
                 {loading ? <span className="spinner" /> : `Comprar por ${PRICE}`}
               </button>
