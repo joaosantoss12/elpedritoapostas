@@ -48,14 +48,7 @@ export default async function handler(req, res) {
         await sendPickEmail(email)
         console.log(`[webhook] Pick email sent to ${email}`)
       } catch (err) {
-        console.error('[webhook] Failed to send pick email:', err.message)
-      }
-
-      try {
-        await sendInvoiceEmail(email, session)
-        console.log(`[webhook] Invoice email sent to ${email}`)
-      } catch (err) {
-        console.error('[webhook] Failed to send invoice email:', err.message)
+        console.error('[webhook] Failed to send email:', err.message)
       }
     }
   }
@@ -184,12 +177,6 @@ async function sendPickEmail(to) {
                           <img src="${pick.image_url}" alt="Aposta" width="100%" style="border-radius:8px;border:1px solid rgba(234,179,8,0.15);display:block;" />
                         </td>
                       </tr>
-                      <tr>
-                        <td style="padding:14px 16px;border-top:1px solid rgba(255,255,255,0.07);text-align:center;">
-                          <p style="margin:0 0 8px;font-size:13px;color:#F1F5F9;line-height:1.6;font-weight:600;">Ganhas te esta super aposta e uma semana no meu vip! 🙌</p>
-                          <a href="https://t.me/+yqZeHcPcHgI5N2Zk" style="font-size:13px;color:#3B82F6;text-decoration:underline;">https://t.me/+yqZeHcPcHgI5N2Zk</a>
-                        </td>
-                      </tr>
                     </table>
                   </td>` : ''}
 
@@ -224,158 +211,6 @@ async function sendPickEmail(to) {
       sender: { name: 'El Pedrito Apostas', email: process.env.BREVO_FROM_EMAIL },
       to: [{ email: to }],
       subject: '⚽ A tua Aposta chegou — El Pedrito Apostas',
-      htmlContent: html,
-    }),
-  })
-
-  if (!response.ok) {
-    const errBody = await response.text()
-    throw new Error(`Brevo API error ${response.status}: ${errBody}`)
-  }
-}
-
-// ── Send invoice email ──────────────────────────────────────────────────
-async function sendInvoiceEmail(to, session) {
-  const invoiceNumber = `EPC-${session.id.slice(-8).toUpperCase()}`
-  const invoiceDate = new Date(session.created * 1000).toLocaleDateString('pt-PT', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-  const customerName = session.customer_details?.name || 'Cliente'
-  const amountTotal = ((session.amount_total || 0) / 100).toFixed(2)
-  const currency = (session.currency || 'eur').toUpperCase()
-
-  const html = `
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Fatura — El Pedrito Apostas</title>
-</head>
-<body style="margin:0;padding:0;background:#080B10;font-family:'Inter',system-ui,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#080B10;padding:40px 16px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
-
-          <!-- Header -->
-          <tr>
-            <td style="background:linear-gradient(135deg,#EAB308,#CA8A04);border-radius:16px 16px 0 0;padding:28px 32px;">
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td>
-                    <p style="margin:0 0 2px;color:rgba(0,0,0,0.6);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">El Pedrito Apostas</p>
-                    <h1 style="margin:0;font-size:22px;font-weight:900;color:#000;">🧾 Fatura / Recibo</h1>
-                  </td>
-                  <td align="right">
-                    <p style="margin:0;font-size:13px;color:rgba(0,0,0,0.7);font-weight:600;">${invoiceNumber}</p>
-                    <p style="margin:4px 0 0;font-size:12px;color:rgba(0,0,0,0.5);">${invoiceDate}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Body -->
-          <tr>
-            <td style="background:#0E1318;border-radius:0 0 16px 16px;padding:32px;border:1px solid rgba(255,255,255,0.08);border-top:none;">
-
-              <!-- Customer info -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-                <tr>
-                  <td style="padding:16px;background:#141A22;border-radius:10px;border:1px solid rgba(255,255,255,0.07);">
-                    <p style="margin:0 0 4px;font-size:11px;color:#EAB308;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Faturado a</p>
-                    <p style="margin:0;font-size:15px;color:#F1F5F9;font-weight:600;">${customerName}</p>
-                    <p style="margin:4px 0 0;font-size:13px;color:#94A3B8;">${to}</p>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Items table -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-                <!-- Table header -->
-                <tr>
-                  <td style="padding:10px 16px;background:#1E2733;border-radius:8px 8px 0 0;border-bottom:1px solid rgba(255,255,255,0.07);">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="font-size:11px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Descrição</td>
-                        <td align="right" style="font-size:11px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Valor</td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <!-- Item row -->
-                <tr>
-                  <td style="padding:14px 16px;background:#141A22;border-bottom:1px solid rgba(255,255,255,0.05);">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td>
-                          <p style="margin:0;font-size:14px;color:#F1F5F9;font-weight:600;">Análise Desportiva Premium</p>
-                          <p style="margin:3px 0 0;font-size:12px;color:#64748B;">Análise completa e aposta recomendada</p>
-                        </td>
-                        <td align="right" style="font-size:14px;color:#F1F5F9;font-weight:600;white-space:nowrap;">${amountTotal} ${currency}</td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <!-- Total row -->
-                <tr>
-                  <td style="padding:14px 16px;background:#141A22;border-radius:0 0 8px 8px;border-top:2px solid rgba(234,179,8,0.3);">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="font-size:14px;color:#EAB308;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Total</td>
-                        <td align="right" style="font-size:20px;color:#EAB308;font-weight:900;">${amountTotal} ${currency}</td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Payment confirmed badge -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-                <tr>
-                  <td align="center" style="padding:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;">
-                    <p style="margin:0;font-size:13px;color:#22C55E;font-weight:700;">✓ Pagamento confirmado</p>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Reference -->
-              <p style="margin:0 0 24px;font-size:12px;color:#64748B;">
-                Referência de pagamento: <span style="color:#94A3B8;font-family:monospace;">${session.id}</span>
-              </p>
-
-              <!-- Footer -->
-              <p style="margin:0 0 4px;font-size:12px;color:rgba(148,163,184,0.5);line-height:1.6;border-top:1px solid rgba(255,255,255,0.07);padding-top:20px;">
-                Guarda este email como comprovativo da tua compra.
-              </p>
-              <p style="margin:0;font-size:12px;color:rgba(148,163,184,0.4);">
-                © ${new Date().getFullYear()} El Pedrito Apostas · elpedritomembros@gmail.com
-              </p>
-
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`
-
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'accept': 'application/json',
-      'api-key': process.env.BREVO_API_KEY,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      sender: { name: 'El Pedrito Apostas', email: process.env.BREVO_FROM_EMAIL },
-      to: [{ email: to }],
-      subject: `🧾 Fatura ${invoiceNumber} — El Pedrito Apostas`,
       htmlContent: html,
     }),
   })
