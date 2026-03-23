@@ -47,11 +47,8 @@ export default async function handler(req, res) {
         },
       ],
       mode: 'payment',
-      billing_address_collection: 'required',
+      billing_address_collection: 'auto',
       customer_creation: 'always',
-      tax_id_collection: {
-        enabled: true,
-      },
       success_url: `${origin}/?success=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/`,
     })
