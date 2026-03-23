@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_ANON_KEY
 )
 
-// Read raw body from stream (needed for Stripe signature verification)
+// ── Read raw body from stream (needed for Stripe signature verification) 
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = []
@@ -17,6 +17,77 @@ async function getRawBody(req) {
   })
 }
 
+// ── Função para Gerar Fatura no InvoiceXpress ──────────────────────────
+async function createInvoiceXpress(email, amountTotalCents) {
+  const apiKey = process.env.INVOICEXPRESS_API_KEY;
+  const account = process.env.INVOICEXPRESS_ACCOUNT;
+
+  if (!apiKey || !account) {
+    console.error('[InvoiceXpress] Chaves de API não configuradas.');
+    return null;
+  }
+
+  // Calcula os valores: O Stripe envia em cêntimos (ex: 2000 = 20.00€)
+  const total = amountTotalCents / 100;
+  const unitPrice = (total / 1.23).toFixed(2); // Retira o IVA de 23%
+
+  // Formata a data de hoje para DD/MM/YYYY
+  const today = new Date();
+  const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+
+  try {
+    // 1. Cria a Fatura Simplificada (Fica em Rascunho)
+    const createRes = await fetch(`https://${account}.app.invoicexpress.com/simplified_invoices.json?api_key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        invoice: {
+          date: dateStr,
+          due_date: dateStr,
+          client: {
+            name: "Consumidor Final",
+            email: email, // Guardamos o email na fatura para registo
+            country: "Portugal"
+          },
+          items: [
+            {
+              name: "Análise Desportiva Premium",
+              unit_price: unitPrice,
+              quantity: 1,
+              tax: { name: "IVA23" } // Usa a taxa padrão de 23%
+            }
+          ]
+        }
+      })
+    });
+
+    const data = await createRes.json();
+    if (!data.simplified_invoice) {
+      console.error('[InvoiceXpress] Falha ao criar rascunho:', data);
+      return null;
+    }
+
+    const invoiceId = data.simplified_invoice.id;
+    const pdfLink = data.simplified_invoice.permalink; // Link seguro para o cliente ver o PDF
+
+    // 2. Finaliza a Fatura para ter validade fiscal
+    await fetch(`https://${account}.app.invoicexpress.com/simplified_invoices/${invoiceId}/change-state.json?api_key=${apiKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        invoice: { state: "finalized" }
+      })
+    });
+
+    console.log(`[InvoiceXpress] Fatura gerada com sucesso: ${pdfLink}`);
+    return pdfLink;
+  } catch (err) {
+    console.error('[InvoiceXpress] Erro na API:', err.message);
+    return null;
+  }
+}
+
+// ── Webhook Handler Principal ──────────────────────────────────────────
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -30,7 +101,6 @@ export default async function handler(req, res) {
     if (process.env.STRIPE_WEBHOOK_SECRET) {
       event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET)
     } else {
-      // No secret configured — skip verification (only for debugging)
       console.warn('[webhook] STRIPE_WEBHOOK_SECRET not set — skipping signature verification')
       event = JSON.parse(rawBody.toString())
     }
@@ -42,13 +112,18 @@ export default async function handler(req, res) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
     const email = session.customer_details?.email
+    const amountTotal = session.amount_total // Valor total pago
 
     if (email) {
       try {
-        await sendPickEmail(email)
-        console.log(`[webhook] Pick email sent to ${email}`)
+        // 1. Gera a fatura e obtém o link do PDF
+        const invoiceLink = await createInvoiceXpress(email, amountTotal);
+        
+        // 2. Envia o email com a Aposta e com o Link da Fatura
+        await sendPickEmail(email, invoiceLink);
+        console.log(`[webhook] Pick email enviado para ${email}`)
       } catch (err) {
-        console.error('[webhook] Failed to send email:', err.message)
+        console.error('[webhook] Failed to send email or invoice:', err.message)
       }
     }
   }
@@ -80,9 +155,17 @@ async function getActivePick() {
   return data
 }
 
-// ── Send email ─────────────────────────────────────────────────────────
-async function sendPickEmail(to) {
+// ── Send email via Brevo ───────────────────────────────────────────────
+async function sendPickEmail(to, invoiceLink) {
   const pick = await getActivePick()
+
+  // Bloco HTML condicional: só aparece se a fatura for gerada com sucesso
+  const invoiceHtml = invoiceLink ? `
+    <div style="margin-bottom:24px;padding:16px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);border-radius:8px;text-align:center;">
+      <p style="margin:0 0 8px;font-size:14px;color:#F1F5F9;font-weight:600;">O teu pagamento foi processado com sucesso.</p>
+      <a href="${invoiceLink}" style="color:#EAB308;text-decoration:none;font-weight:700;font-size:13px;" target="_blank">🔗 Consultar a minha Fatura Simplificada</a>
+    </div>
+  ` : '';
 
   const html = `
 <!DOCTYPE html>
@@ -106,7 +189,6 @@ async function sendPickEmail(to) {
       <td align="center">
         <table width="900" cellpadding="0" cellspacing="0" class="email-wrap" style="max-width:900px;width:100%;">
 
-          <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#EAB308,#CA8A04);border-radius:16px 16px 0 0;padding:32px;text-align:center;">
               <p style="margin:0 0 4px;color:rgba(0,0,0,0.6);font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">El Pedrito Apostas</p>
@@ -114,7 +196,6 @@ async function sendPickEmail(to) {
             </td>
           </tr>
 
-          <!-- Body -->
           <tr>
             <td class="body-pad" style="background:#0E1318;border-radius:0 0 16px 16px;padding:32px;border:1px solid rgba(255,255,255,0.08);border-top:none;">
 
@@ -122,11 +203,9 @@ async function sendPickEmail(to) {
                 Obrigado pela tua compra! Aqui está a análise e aposta que preparámos para ti.
               </p>
 
-              <!-- Pick cards: side by side if image exists, single column otherwise -->
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
                 <tr valign="top">
 
-                  <!-- Text pick card -->
                   <td class="stack-col" style="padding-right:${pick.image_url ? '10px' : '0'};">
                     <table width="100%" cellpadding="0" cellspacing="0" style="background:#141A22;border:1px solid rgba(234,179,8,0.25);border-radius:12px;overflow:hidden;">
                       <tr>
@@ -164,7 +243,6 @@ async function sendPickEmail(to) {
                   </td>
 
                   ${pick.image_url ? `
-                  <!-- Image pick card -->
                   <td class="stack-col" width="48%" style="padding-left:10px;">
                     <table width="100%" cellpadding="0" cellspacing="0" style="background:#141A22;border:1px solid rgba(234,179,8,0.25);border-radius:12px;overflow:hidden;height:100%;">
                       <tr>
@@ -183,9 +261,11 @@ async function sendPickEmail(to) {
                 </tr>
               </table>
 
-              <!-- Disclaimer -->
+              ${invoiceHtml}
+
               <p style="margin:0 0 8px;font-size:12px;color:rgba(148,163,184,0.5);line-height:1.6;border-top:1px solid rgba(255,255,255,0.07);padding-top:24px;">
-                ⚠️ Esta análise é de caráter informativo. Apostar pode criar dependência. Joga com responsabilidade. +18.
+                ⚠️ Esta análise é de caráter informativo. Apostar pode criar dependência. Joga com responsabilidade. +18.<br>
+                Em caso de dúvidas contacta-nos através de elpedritomembros@gmail.com
               </p>
               <p style="margin:0;font-size:12px;color:rgba(148,163,184,0.4);">
                 © ${new Date().getFullYear()} El Pedrito Apostas
