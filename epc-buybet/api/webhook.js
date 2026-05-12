@@ -137,6 +137,7 @@ async function getActivePick() {
     .from('picks')
     .select('*')
     .eq('active', true)
+    .eq('seller', 'pedrito')
     .order('created_at', { ascending: false })
     .limit(1)
     .single()

@@ -23,6 +23,7 @@ export default async function handler(req, res) {
       .from('picks')
       .select('price')
       .eq('active', true)
+      .eq('seller', 'pedrito')
       .order('created_at', { ascending: false })
       .limit(1)
       .single()

@@ -66,6 +66,7 @@ function App() {
     supabase
       .from('picks')
       .select('*')
+      .eq('seller', 'pedrito')
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
