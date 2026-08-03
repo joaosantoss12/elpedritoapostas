@@ -1,11 +1,8 @@
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from './_lib/supabaseAdmin.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.VITE_SUPABASE_ANON_KEY
-)
+const SELLER = 'pedrito'
 
 // ── Helper function to convert line breaks to HTML ──────────────────────
 function nl2br(text) {
@@ -118,22 +115,54 @@ export default async function handler(req, res) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
     const seller = session.metadata?.seller
+    const purchaseId = session.metadata?.purchase_id
 
     // Only process payments made through this seller's checkout
-    if (seller !== 'pedrito') {
+    if (seller !== SELLER || !purchaseId) {
       return res.status(200).json({ received: true })
     }
 
+    // Idempotência à prova de reenvio: o Stripe pode reenviar o mesmo evento.
+    // `paid` na própria linha da compra é a marca de "já processado".
+    const { data: purchase, error: fetchError } = await supabaseAdmin
+      .from('purchases')
+      .select('*')
+      .eq('id', purchaseId)
+      .single()
+
+    if (fetchError || !purchase) {
+      console.error('[webhook] purchase not found:', purchaseId, fetchError?.message)
+      return res.status(200).json({ received: true, skipped: 'purchase not found' })
+    }
+
+    if (purchase.paid) {
+      return res.status(200).json({ received: true, skipped: 'already processed' })
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from('purchases')
+      .update({
+        paid: true,
+        paid_at: new Date().toISOString(),
+        stripe_session_id: session.id,
+        customer_email: session.customer_details?.email ?? null,
+      })
+      .eq('id', purchaseId)
+
+    if (updateError) {
+      console.error('[webhook] failed to mark purchase paid:', updateError.message)
+      return res.status(500).json({ error: 'Failed to record purchase' })
+    }
+
+    // A entrega principal é no site (o comprador vê a aposta ao voltar,
+    // autenticado com o mesmo Telegram). O email é só um bónus, best-effort.
     const email = session.customer_details?.email
-    const amountTotal = session.amount_total // Valor total pago
+    const amountTotal = session.amount_total
 
     if (email) {
       try {
-        // 1. Gera a fatura e obtém o link do PDF
-        const invoiceLink = await createInvoiceXpress(email, amountTotal);
-        
-        // 2. Envia o email com a Aposta e com o Link da Fatura
-        await sendPickEmail(email, invoiceLink);
+        const invoiceLink = await createInvoiceXpress(email, amountTotal)
+        await sendPickEmail(email, purchase, invoiceLink)
         console.log(`[webhook] Pick email enviado para ${email}`)
       } catch (err) {
         console.error('[webhook] Failed to send email or invoice:', err.message)
@@ -144,35 +173,8 @@ export default async function handler(req, res) {
   res.status(200).json({ received: true })
 }
 
-// ── Fetch active pick from Supabase ────────────────────────────────────
-async function getActivePick() {
-  const { data, error } = await supabase
-    .from('picks')
-    .select('*')
-    .eq('active', true)
-    .eq('seller', 'pedrito')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (error || !data) {
-    console.error('[getActivePick] Supabase error:', error?.message)
-    return {
-      game: 'A revelar',
-      bet: 'A revelar',
-      odd: '—',
-      analysis: 'A análise será enviada em breve.',
-      markets: '',
-    }
-  }
-
-  return data
-}
-
 // ── Send email via Brevo ───────────────────────────────────────────────
-async function sendPickEmail(to, invoiceLink) {
-  const pick = await getActivePick()
-
+async function sendPickEmail(to, pick, invoiceLink) {
   // Convert line breaks to HTML for text fields
   const analysisHtml = nl2br(pick.analysis);
   const marketsHtml = nl2br(pick.markets);
